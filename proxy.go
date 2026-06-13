@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"io"
 	"maps"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 func matchUrl(configUrl string, url string) bool {
@@ -64,19 +66,28 @@ func (g Gateway) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		http.Error(writer, err.Error(), http.StatusBadGateway)
 		return
 	}
+
+	//dodat timeout na context, tako sto smo modifikovali trenutni kontekst da dobije brojac
+	ctx, cancel := context.WithTimeout(request.Context(), 5*time.Second) //
+	defer cancel()
+	newRequest = newRequest.WithContext(ctx)
+
 	//slanje httpa backendu - roundtrip
 	response, err := http.DefaultTransport.RoundTrip(newRequest)
 	if err != nil {
+		if errors.Is(err, context.DeadlineExceeded) { //ako je deadline (5s) prosao, onda 504, u suprotnom 502
+			http.Error(writer, err.Error(), http.StatusGatewayTimeout)
+			return
+		}
 		http.Error(writer, err.Error(), http.StatusBadGateway)
 		return
 	}
+
 	defer response.Body.Close()
 
 	maps.Copy(writer.Header(), response.Header) //posto je header mapa lista, mora da se koristi ova funkcija za kopiranje headera.
-	//alternativa je dupla for petlja sto je bas gadno...
-	writer.WriteHeader(response.StatusCode) //dodat status code. ovde posle writeheader je header zakucan i nema mu izmene
-
-	//sledi kopiranje bodya
+	writer.WriteHeader(response.StatusCode)     //dodat status code. ovde posle writeheader je header zakucan i nema mu izmene
+	//sledi kopiranje bodya i io.Copy automatski salje dalje
 	io.Copy(writer, response.Body)
 
 }
