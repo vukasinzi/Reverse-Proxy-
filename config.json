@@ -3,7 +3,7 @@
   "services": [
     {
       "name":"user-service",
-      "path": "api/users",
+      "path": "/api/users",
       "prefix": false,
       "instances": [
         {
@@ -16,7 +16,7 @@
     },
     {
       "name": "order-service",
-      "path":"api/orders",
+      "path":"/api/orders",
       "prefix": false,
       "instances": [
         {
@@ -30,7 +30,7 @@
     },
     {
       "name": "shipping-service",
-      "path": "api/shipping",
+      "path": "/api/shipping",
       "prefix": false,
       "instances": [
         {
