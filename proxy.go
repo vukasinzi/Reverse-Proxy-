@@ -4,10 +4,17 @@ import (
 	"io"
 	"maps"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
-func (g *Gateway) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
+func matchUrl(configUrl string, url string) bool {
+	if configUrl == url || strings.HasPrefix(url, configUrl+"/") {
+		return true
+	}
+	return false
+}
+func (g Gateway) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	URL := request.URL
 	var newRequest *http.Request
 	var service Service
@@ -15,7 +22,7 @@ func (g *Gateway) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 	for i := 0; i < len(g.config.Services); i++ {
 		service = g.config.Services[i]
 
-		if strings.HasPrefix(URL.Path, service.Path) {
+		if matchUrl(service.Path, URL.Path) {
 			newRequest = request.Clone(request.Context())
 			break
 		}
@@ -32,10 +39,17 @@ func (g *Gateway) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 			newRequest.URL.Path = "/"
 		}
 	}
-
+	//sklapanje novog httpa
 	newRequest.URL.Scheme = "http"
-	newRequest.URL.Host = service.Instances[0].Url
-	newRequest.Host = service.Instances[0].Url
+	//skidanje http:// tako da se dobije samo localhost i port:
+	temp, err := url.Parse(service.Instances[0].Url)
+	if temp == nil || err != nil {
+		http.Error(writer, "invalid backend url", http.StatusBadGateway)
+		return
+	}
+
+	newRequest.URL.Host = temp.Host
+	newRequest.Host = temp.Host
 	newRequest.RequestURI = ""
 
 	//slanje httpa backendu - roundtrip

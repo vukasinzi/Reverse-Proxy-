@@ -1,6 +1,9 @@
 package main
 
-import "net/http"
+import (
+	"fmt"
+	"net/http"
+)
 
 func main() {
 	var config GatewayConfig
@@ -9,5 +12,7 @@ func main() {
 		panic(err)
 	}
 	gateway := Gateway{config: &config}
+	fmt.Println("Started on 5050")
+
 	http.ListenAndServe(":5050", gateway)
 }

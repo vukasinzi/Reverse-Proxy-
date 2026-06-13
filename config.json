@@ -4,7 +4,7 @@
     {
       "name":"user-service",
       "path": "/api/users",
-      "prefix": false,
+      "prefix": true,
       "instances": [
         {
           "url": "http://localhost:1001"
@@ -17,7 +17,7 @@
     {
       "name": "order-service",
       "path":"/api/orders",
-      "prefix": false,
+      "prefix": true,
       "instances": [
         {
           "url": "http://localhost:2001"
@@ -31,7 +31,7 @@
     {
       "name": "shipping-service",
       "path": "/api/shipping",
-      "prefix": false,
+      "prefix": true,
       "instances": [
         {
           "url": "http://localhost:3001"
