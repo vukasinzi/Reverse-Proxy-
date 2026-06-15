@@ -20,18 +20,18 @@ func matchUrl(configUrl string, url string) bool {
 	}
 	return false
 }
-func (g Gateway) findService(url *url.URL) (Service, error) {
-	var service Service
+func (g Gateway) findService(url *url.URL) (*Service, error) {
+	var service *Service
 	for i := 0; i < len(g.config.Services); i++ {
-		service = g.config.Services[i]
+		service = &g.config.Services[i]
 
 		if matchUrl(service.Path, url.Path) {
 			return service, nil
 		}
 	}
-	return Service{}, errors.New("service not found")
+	return nil, errors.New("service not found")
 }
-func makeNewRequest(service Service, request *http.Request) (*http.Request, error) {
+func makeNewRequest(service *Service, request *http.Request) (*http.Request, error) {
 	newRequest := request.Clone(request.Context()) //Kloniranje postojeceg httpa, radi lakse izmene i preusmerenja na backend
 	if newRequest == nil {
 		return nil, errors.New("An error occured while creating new request")
@@ -44,7 +44,12 @@ func makeNewRequest(service Service, request *http.Request) (*http.Request, erro
 	}
 	//sklapanje novog httpa
 	newRequest.URL.Scheme = "http"
-	temp, err := url.Parse(service.Instances[0].Url) //skidanje http:// tako da se dobije samo localhost i port:
+	/*Load balancin*/
+	instance := service.pickAlgorithm()
+	if instance == nil {
+		return nil, errors.New("An error occured while creating new request")
+	}
+	temp, err := url.Parse(instance.Url) //skidanje http:// tako da se dobije samo localhost i port:
 	if temp == nil || err != nil {
 		return nil, errors.New("invalid backend url")
 	}

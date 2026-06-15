@@ -1,0 +1,6 @@
+sudo docker run -d --rm --name user1 -p 1001:80 traefik/whoami
+sudo docker run -d --rm --name user2 -p 1002:80 traefik/whoami
+sudo docker run -d --rm --name order1 -p 2001:80 traefik/whoami
+sudo docker run -d --rm --name order2 -p 2002:80 traefik/whoami
+sudo docker run -d --rm --name shipping1 -p 3001:80 traefik/whoami
+sudo docker run -d --rm --name shipping2 -p 3002:80 traefik/whoami
