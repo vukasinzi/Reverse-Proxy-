@@ -2,7 +2,7 @@
   "server": "Reverse proxy",
   "services": [
     {
-      "name":"user-service",
+      "name": "user-service",
       "path": "/api/users",
       "prefix": true,
       "algorithm": "round robin",
@@ -17,7 +17,7 @@
     },
     {
       "name": "order-service",
-      "path":"/api/orders",
+      "path": "/api/orders",
       "prefix": true,
       "algorithm": "round robin",
       "instances": [
@@ -28,7 +28,6 @@
           "url": "http://localhost:2002"
         }
       ]
-
     },
     {
       "name": "shipping-service",
@@ -43,8 +42,22 @@
           "url": "http://localhost:3002"
         }
       ]
+    },
+    {
+      "name": "payment-service",
+      "path": "/api/payments",
+      "prefix": true,
+      "algorithm": "weighted round robin",
+      "instances": [
+        {
+          "url": "http://localhost:4001",
+          "weight": 3
+        },
+        {
+          "url": "http://localhost:4002",
+          "weight": 1
+        }
+      ]
     }
-
   ]
-
 }

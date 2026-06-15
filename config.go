@@ -12,6 +12,10 @@ func (service *Service) checkAlgorithm() error {
 		return nil
 	case "weighted round robin":
 		return nil
+	case "first available":
+		return nil
+	case "random":
+		return nil
 	default:
 		return fmt.Errorf("unknown algorithm: %s", service.Algorithm)
 	}
@@ -55,7 +59,23 @@ func initializeStates(config *GatewayConfig) error {
 		case "round robin":
 			service.State = &RoundRobin{}
 		case "weighted round robin":
+			totalWeight := 0
+
+			for j := range service.Instances {
+				if service.Instances[j].Weight <= 0 {
+					service.Instances[j].Weight = 1
+				}
+				totalWeight += service.Instances[j].Weight
+			}
+			service.State = &SmoothWeightedRoundRobin{
+				currentWeight: make(map[string]int),
+				totalWeight:   totalWeight,
+			}
+
 		case "random":
+			service.State = &Random{}
+		case "first available":
+			service.State = &FirstAvailable{}
 		default:
 			return fmt.Errorf("unknown algorithm: %s", service.Algorithm)
 		}

@@ -3,20 +3,21 @@ package main
 import "sync"
 
 type GatewayConfig struct {
-	ServerName string
-	Services   []Service
+	ServerName string    `json:"server"`
+	Services   []Service `json:"services"`
 }
 type Service struct {
-	Name      string
-	Path      string
-	Prefix    bool
-	Algorithm string
-	Instances []Instance
+	Name      string     `json:"name"`
+	Path      string     `json:"path"`
+	Prefix    bool       `json:"prefix"`
+	Algorithm string     `json:"algorithm"`
+	Instances []Instance `json:"instances"`
 
 	State State `json:"-"`
 }
 type Instance struct {
-	Url string
+	Url    string `json:"url"`
+	Weight int    `json:"weight,omitempty"`
 }
 
 type Gateway struct {
@@ -28,4 +29,13 @@ type State interface {
 type RoundRobin struct {
 	mutex sync.Mutex
 	next  int
+}
+type SmoothWeightedRoundRobin struct { //algoritam treba da popravi probleme WRR-a, tj burstove
+	mutex         sync.Mutex
+	currentWeight map[string]int
+	totalWeight   int
+}
+type FirstAvailable struct {
+}
+type Random struct {
 }

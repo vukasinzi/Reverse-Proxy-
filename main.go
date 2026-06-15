@@ -14,5 +14,8 @@ func main() {
 	gateway := Gateway{config: &config}
 	fmt.Println("Started on 5050")
 
-	http.ListenAndServe(":5050", gateway)
+	err = http.ListenAndServe(":5050", gateway)
+	if err != nil {
+		return
+	}
 }

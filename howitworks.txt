@@ -1,0 +1,19 @@
+
+Reverse proxy.
+
+Na mainu se osluškuje na portu 5050 za api pozive ka servisima.
+Proxy.go hvata taj zahtev, proverava da l postoji-je l validan, i prosleđuje ga odgovarajućem servisu.
+Dobijen odgovor ubacuje u prvobitan zahtev i šalje ga nazad.
+
+Proxy za sada podrazumeva timeout i load balancing algoritme. Većina posla se obavlja ovde.
+loadBalancer radi na sledeći način
+
+interfejs state definiše PickNext funkciju koja omogućava svakome ko je nasledi da izabere sledeći servis po svom algoritmu respektivno.
+Razlog za njegovo postojanje je potreba očuvanja stanja za algoritme poput RR i WRR. Za random i First available on nije potreban.
+
+Dakle, svako ko je nasledi može da redefiniše ponašanje za svoj slučaj. RoundRobin struktura redefiniše svoj, time što se sama funkcija,
+ugnježdi direktno na njemu. Ovim pravimo neki vid nasleđivanja pa ispada kao da je State nadklasa tj interfejs koji nasleđuju ostali algoritmi
+Još jedan razlog za postojanje Statea je mutex koji treba da osigura da se nikad ne desi race condition pri odabiru sledećeg servisa.
+
+Najzad, ovo jedino može da radi ako sve ove stejtove na početku inicijalizujemo. To radimo u config pri učitavanju gde odabir algoritma
+uzimamo direktno iz fajla 'config.json'
