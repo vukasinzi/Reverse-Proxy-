@@ -22,14 +22,21 @@ func matchUrl(configUrl string, url string) bool {
 }
 func (g Gateway) findService(url *url.URL) (*Service, error) {
 	var service *Service
+	var best *Service
 	for i := 0; i < len(g.config.Services); i++ {
 		service = &g.config.Services[i]
 
 		if matchUrl(service.Path, url.Path) {
-			return service, nil
+			if best == nil || len(service.Path) > len(best.Path) {
+				best = service
+			}
 		}
 	}
-	return nil, errors.New("service not found")
+	if best == nil {
+		return nil, errors.New("service not found")
+	}
+	return best, nil
+
 }
 func makeNewRequest(service *Service, request *http.Request) (*http.Request, error) {
 	newRequest := request.Clone(request.Context()) //Kloniranje postojeceg httpa, radi lakse izmene i preusmerenja na backend
