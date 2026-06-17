@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"math/rand/v2"
 )
 
@@ -22,7 +21,6 @@ func (rr *RoundRobin) PickNext(service *Service) *Instance {
 	}
 	chosenInstance := &service.Instances[rr.next]
 	rr.next = (rr.next + 1) % modus
-	fmt.Printf("Connected to the instance %s\n", chosenInstance.Url)
 	return chosenInstance
 } //cela ova funkcija, kao i svaki drugi picker zavisi od inicijalizacije Stateova pri pokretanju proxya. u suprotnom su nil.
 func (r *Random) PickNext(service *Service) *Instance {

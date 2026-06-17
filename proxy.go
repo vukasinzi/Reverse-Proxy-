@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"maps"
 	"net/http"
@@ -56,6 +57,8 @@ func makeNewRequest(service *Service, request *http.Request) (*http.Request, err
 	if instance == nil {
 		return nil, errors.New("An error occured while creating new request")
 	}
+	fmt.Printf("Pronadjen %s: %s\n", service.Name, instance.Url)
+
 	temp, err := url.Parse(instance.Url) //skidanje http:// tako da se dobije samo localhost i port:
 	if temp == nil || err != nil {
 		return nil, errors.New("invalid backend url")
@@ -72,34 +75,57 @@ func (g Gateway) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		http.NotFound(writer, request)
 		return
 	}
-
-	newRequest, err := makeNewRequest(service, request)
-	if err != nil {
-		http.Error(writer, err.Error(), http.StatusBadGateway)
+	//racuna se kao broj instanci - kad se doda healthcheck bice broj zdravih instanci
+	maxAttempts := len(service.Instances)
+	if maxAttempts == 0 {
+		http.NotFound(writer, request)
 		return
 	}
+	var savedError error
+	var lastStatus int
+	for i := 0; i < maxAttempts; i++ {
 
-	//dodat timeout na context, tako sto smo modifikovali trenutni kontekst da dobije brojac
-	ctx, cancel := context.WithTimeout(request.Context(), 5*time.Second) //
-	defer cancel()
-	newRequest = newRequest.WithContext(ctx)
-
-	//slanje httpa backendu - roundtrip
-	response, err := http.DefaultTransport.RoundTrip(newRequest)
-	if err != nil {
-		if errors.Is(err, context.DeadlineExceeded) { //ako je deadline (5s) prosao, onda 504, u suprotnom 502
-			http.Error(writer, err.Error(), http.StatusGatewayTimeout)
-			return
+		newRequest, err := makeNewRequest(service, request)
+		if err != nil {
+			//http.Error(writer, err.Error(), http.StatusBadGateway)
+			savedError = err
+			lastStatus = http.StatusBadGateway
+			continue
 		}
-		http.Error(writer, err.Error(), http.StatusBadGateway)
+
+		//dodat timeout na context, tako sto smo modifikovali trenutni kontekst da dobije brojac
+		ctx, cancel := context.WithTimeout(request.Context(), 5*time.Second) //
+		//defer cancel()
+		newRequest = newRequest.WithContext(ctx)
+
+		//slanje httpa backendu - roundtrip
+		response, err := http.DefaultTransport.RoundTrip(newRequest)
+		if err != nil {
+			cancel()
+			savedError = err
+			if errors.Is(err, context.DeadlineExceeded) { //ako je deadline (5s) prosao, onda 504, u suprotnom 502
+				lastStatus = http.StatusGatewayTimeout
+				fmt.Printf("Timeout %s -> %s\n", service.Name, newRequest.URL.Host)
+				continue
+			}
+			lastStatus = http.StatusBadGateway
+			fmt.Printf("Neuspesna konekcija sa  %s -> %s\n", service.Name, newRequest.URL.Host)
+
+			continue
+		}
+
+		maps.Copy(writer.Header(), response.Header) //posto je header mapa lista, mora da se koristi ova funkcija za kopiranje headera.
+		writer.WriteHeader(response.StatusCode)     //dodat status code. ovde posle writeheader je header zakucan i nema mu izmene
+		//sledi kopiranje bodya i io.Copy automatski salje dalje
+		io.Copy(writer, response.Body)
+		response.Body.Close() //nakon citanja http bodya da ne bi konekcija ostala otvorena moramo je zatvoriti
+		cancel()              //zaustavlja timer i memoriju vezanu za njega
+		fmt.Printf("Povezan %s -> %s\n", service.Name, newRequest.URL.Host)
+
 		return
 	}
-
-	defer response.Body.Close()
-
-	maps.Copy(writer.Header(), response.Header) //posto je header mapa lista, mora da se koristi ova funkcija za kopiranje headera.
-	writer.WriteHeader(response.StatusCode)     //dodat status code. ovde posle writeheader je header zakucan i nema mu izmene
-	//sledi kopiranje bodya i io.Copy automatski salje dalje
-	io.Copy(writer, response.Body)
+	if savedError != nil { //u slucaju da smo spucali sve attemptove, salje se error
+		http.Error(writer, savedError.Error(), lastStatus)
+	}
 
 }
