@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -17,22 +18,30 @@ func startHealthChecks(gateway *Gateway) {
 }
 func activeHealthCheck(gateway *Gateway) {
 
+	var wg sync.WaitGroup //ovo je pomagalo kojim vodim racuna o svim gorutinama
+
 	for i := range gateway.config.Services {
 		service := &gateway.config.Services[i]
 		for j := range service.Instances {
 			instance := &service.Instances[j]
-			if !checkInstance(instance.Url) {
-				instance.FailCount++
-				if instance.FailCount >= 3 {
-					instance.Healthy = false
+
+			wg.Add(1)
+			go func(inst *Instance) {
+				defer wg.Done()
+				if !checkInstance(inst.Url) {
+					inst.FailCount++
+					if inst.FailCount >= 3 {
+						inst.Healthy = false
+					}
+				} else {
+					inst.Healthy = true
+					inst.FailCount = 0
 				}
-			} else {
-				instance.Healthy = true
-				instance.FailCount = 0
-			}
+			}(instance)
 
 		}
 	}
+	wg.Wait() //ovo ceka da vrednost bude 0 da bi se otkljucao, u suprotnom se sve gorutine koje stignu zakucaju ovde i cekaju
 
 }
 func checkInstance(url string) bool {
