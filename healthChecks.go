@@ -10,7 +10,8 @@ import (
 func startHealthChecks(gateway *Gateway) {
 	ticker := time.NewTicker(5 * time.Second)
 
-	go func() {
+	go func() { //razlog zasto je ovo go funkcija jeste da se ostatak programa ne blokira dok se rade health checkovi
+		//dakle omogucava da healthcheckovi rade u pozadini dok proxy prima zahteve
 		for range ticker.C {
 			activeHealthCheck(gateway)
 		}
@@ -28,7 +29,11 @@ func activeHealthCheck(gateway *Gateway) {
 			wg.Add(1)
 			go func(inst *Instance) {
 				defer wg.Done()
-				if !checkInstance(inst.Url) {
+				isHealthy := checkInstance(inst.Url)
+				inst.Mu.Lock()
+				defer inst.Mu.Unlock()
+
+				if !isHealthy {
 					inst.FailCount++
 					if inst.FailCount >= 3 {
 						inst.Healthy = false
@@ -41,7 +46,7 @@ func activeHealthCheck(gateway *Gateway) {
 
 		}
 	}
-	wg.Wait() //ovo ceka da vrednost bude 0 da bi se otkljucao, u suprotnom se sve gorutine koje stignu zakucaju ovde i cekaju
+	wg.Wait() //ovo ceka da vrednost bude 0, tj da sve gorutine pozovu wg.done. Tajmer nece pozvati novu funkciju activeHealthcheck dok se ova ne zavrsi
 
 }
 func checkInstance(url string) bool {
