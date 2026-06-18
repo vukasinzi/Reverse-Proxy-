@@ -16,8 +16,10 @@ type Service struct {
 	State State `json:"-"`
 }
 type Instance struct {
-	Url    string `json:"url"`
-	Weight int    `json:"weight,omitempty"`
+	Url       string `json:"url"`
+	Weight    int    `json:"weight,omitempty"`
+	Healthy   bool   `json:"healthy"`
+	FailCount int    `json:"-"`
 }
 
 type Gateway struct {

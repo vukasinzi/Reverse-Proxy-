@@ -4,8 +4,10 @@ sudo docker run -d --rm --name order1 -p 2001:80 traefik/whoami
 sudo docker run -d --rm --name order2 -p 2002:80 traefik/whoami
 sudo docker run -d --rm --name shipping1 -p 3001:80 traefik/whoami
 sudo docker run -d --rm --name shipping2 -p 3002:80 traefik/whoami
+sudo docker run -d --rm --name payment1 -p 4001:80 traefik/whoami
+sudo docker run -d --rm --name payment2 -p 4002:80 traefik/whoami
 
 
 
 ----
-sudo docker stop user1 user2 order1 order2 shipping1 shipping2
+sudo docker stop user1 user2 order1 order2 shipping1 shipping2 payment1 payment2
