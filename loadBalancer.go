@@ -5,46 +5,99 @@ import (
 )
 
 func (service *Service) pickAlgorithm() *Instance {
+
 	return service.State.PickNext(service)
 }
 
 // odabir na osnovu algoritma round robin
 func (rr *RoundRobin) PickNext(service *Service) *Instance {
 	rr.mutex.Lock()
-	defer rr.mutex.Unlock() //zastita
-	modus := len(service.Instances)
-	if modus == 0 {
-		return nil
+	defer rr.mutex.Unlock()
+	for i := 0; i < len(service.Instances); i++ {
+		//rr.mutex.Lock() razlog zasto sam pomerio rr lock, jer pri pokusaju da se pristupi round robin algoritmu od strane vise zahteva, dolazi do preplitanja.
+		//moze da dodje do toga da vise zahteva odjednom za ovaj round robin pomera next i samim tim imamo race condition.
+		//resenje je lock na vrhu a odmah posle njega defer
+		modus := len(service.Instances)
+		if modus == 0 {
+			return nil
+		}
+		if rr.next >= modus {
+			rr.next = 0
+		}
+		chosenInstance := &service.Instances[rr.next]
+		rr.next = (rr.next + 1) % modus
+		chosenInstance.Mu.Lock() //dodatak, mora da se zakljuca i ovo ako ga proveravamo, da ga healthcheck ne bi promenio!
+		if chosenInstance.Healthy == true {
+			chosenInstance.Mu.Unlock()
+			return chosenInstance
+		}
+		chosenInstance.Mu.Unlock()
 	}
-	if rr.next >= modus {
-		rr.next = 0
-	}
-	chosenInstance := &service.Instances[rr.next]
-	rr.next = (rr.next + 1) % modus
-	return chosenInstance
+
+	return nil
+
 } //cela ova funkcija, kao i svaki drugi picker zavisi od inicijalizacije Stateova pri pokretanju proxya. u suprotnom su nil.
 func (r *Random) PickNext(service *Service) *Instance {
-	number := rand.IntN(len(service.Instances))
-	chosenInstance := &service.Instances[number]
-	return chosenInstance
+	for i := 0; i < 10; i++ {
+		number := rand.IntN(len(service.Instances))
+		chosenInstance := &service.Instances[number]
+		chosenInstance.Mu.Lock()
+		if chosenInstance.Healthy == true {
+			chosenInstance.Mu.Unlock()
+			return chosenInstance
+		}
+		chosenInstance.Mu.Unlock()
+	}
+	return nil
+
 }
 func (fa *FirstAvailable) PickNext(service *Service) *Instance {
-	return &service.Instances[0]
+	for i, _ := range service.Instances {
+		ins := &service.Instances[i]
+		ins.Mu.Lock()
+		if ins.Healthy {
+			ins.Mu.Unlock()
+			return &service.Instances[i]
+		}
+		ins.Mu.Unlock()
+	}
+	return nil
+
 }
 func (swrr *SmoothWeightedRoundRobin) PickNext(service *Service) *Instance {
 
 	swrr.mutex.Lock()
 	defer swrr.mutex.Unlock()
-	for _, instanca := range service.Instances {
-		swrr.currentWeight[instanca.Url] += instanca.Weight
+	dynamicTotalWeight := 0
+	for i, _ := range service.Instances {
+		instanca := &service.Instances[i]
+		instanca.Mu.Lock()
+		if instanca.Healthy == true {
+			swrr.currentWeight[instanca.Url] += instanca.Weight
+			dynamicTotalWeight += instanca.Weight
+		}
+		instanca.Mu.Unlock()
 	}
+	//takodje totalWeight je deprecated zato sto ako neki server pukne, unistava se matematicka formula za smanjivanje weighta! mora dynamic total weight
+	//best := 0 -> deprecated zato sto 0ta instanca servera moze biti ubijena. Moram proci kroz sve instance i onda na osnovu postojecih proveriti koji je best!
 
-	best := 0
+	best := -1
 	for i := range service.Instances {
-		if swrr.currentWeight[service.Instances[i].Url] > swrr.currentWeight[service.Instances[best].Url] {
+		instanca := &service.Instances[i]
+		instanca.Mu.Lock()
+		if instanca.Healthy == false {
+			instanca.Mu.Unlock()
+			continue
+		}
+		instanca.Mu.Unlock()
+		if best == -1 || swrr.currentWeight[instanca.Url] > swrr.currentWeight[service.Instances[best].Url] {
 			best = i
 		}
 	}
-	swrr.currentWeight[service.Instances[best].Url] -= swrr.totalWeight
+	if best == -1 {
+		return nil
+	}
+
+	swrr.currentWeight[service.Instances[best].Url] -= dynamicTotalWeight
 	return &service.Instances[best]
 }

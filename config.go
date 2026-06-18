@@ -59,17 +59,17 @@ func initializeStates(config *GatewayConfig) error {
 		case "round robin":
 			service.State = &RoundRobin{}
 		case "weighted round robin":
-			totalWeight := 0
+			//totalWeight := 0
 
 			for j := range service.Instances {
 				if service.Instances[j].Weight <= 0 {
 					service.Instances[j].Weight = 1
 				}
-				totalWeight += service.Instances[j].Weight
+				//totalWeight += service.Instances[j].Weight
 			}
 			service.State = &SmoothWeightedRoundRobin{
 				currentWeight: make(map[string]int),
-				totalWeight:   totalWeight,
+				//staticki total weight deprecated
 			}
 
 		case "random":
