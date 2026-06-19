@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math/rand/v2"
 )
 
@@ -29,10 +30,13 @@ func (rr *RoundRobin) PickNext(service *Service) *Instance {
 		chosenInstance.Mu.Lock() //dodatak, mora da se zakljuca i ovo ako ga proveravamo, da ga healthcheck ne bi promenio!
 		if chosenInstance.Healthy == true {
 			chosenInstance.Mu.Unlock()
+			fmt.Printf("Service %s: RoundRobin selected instance %s\n", service.Name, chosenInstance.Url)
+
 			return chosenInstance
 		}
 		chosenInstance.Mu.Unlock()
 	}
+	fmt.Printf("Service %s: RoundRobin found no healthy instances\n", service.Name)
 
 	return nil
 
@@ -62,10 +66,14 @@ func (r *Random) PickNext(service *Service) *Instance {
 		chosenInstance.Mu.Lock()
 		if chosenInstance.Healthy == true {
 			chosenInstance.Mu.Unlock()
+			fmt.Printf("Service %s: Random selected instance %s\n", service.Name, chosenInstance.Url)
+
 			return chosenInstance
 		}
 		chosenInstance.Mu.Unlock()
 	}
+	fmt.Printf("Service %s: Random found no healthy instances\n", service.Name)
+
 	return nil
 
 }
@@ -75,10 +83,13 @@ func (fa *FirstAvailable) PickNext(service *Service) *Instance {
 		ins.Mu.Lock()
 		if ins.Healthy {
 			ins.Mu.Unlock()
+			fmt.Printf("Service %s: FirstAvailable selected instance %s\n", service.Name, ins.Url)
 			return &service.Instances[i]
 		}
 		ins.Mu.Unlock()
 	}
+	fmt.Printf("Service %s: FirstAvailable found no healthy instances\n", service.Name)
+
 	return nil
 
 }
@@ -115,9 +126,12 @@ func (swrr *SmoothWeightedRoundRobin) PickNext(service *Service) *Instance {
 		}
 	}
 	if best == -1 {
+		fmt.Printf("Service %s: SmoothWeightedRoundRobin found no healthy instances\n", service.Name)
 		return nil
 	}
 
 	swrr.currentWeight[service.Instances[best].Url] -= dynamicTotalWeight
+	fmt.Printf("Service %s: SmoothWeightedRoundRobin selected instance %s\n", service.Name, service.Instances[best].Url)
+
 	return &service.Instances[best]
 }

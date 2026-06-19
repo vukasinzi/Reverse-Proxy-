@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -35,6 +36,8 @@ func activeHealthCheck(gateway *Gateway) {
 
 				if !isHealthy {
 					inst.FailCount++
+					fmt.Printf("Health check failed for %s (fail count %d)\n", inst.Url, inst.FailCount)
+
 					if inst.FailCount >= 3 {
 						inst.Healthy = false
 					}

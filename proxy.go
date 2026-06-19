@@ -35,8 +35,11 @@ func (g Gateway) findService(url *url.URL) (*Service, error) {
 		}
 	}
 	if best == nil {
+		fmt.Printf("No service matched for path %s\n", url.Path)
 		return nil, errors.New("service not found")
 	}
+	fmt.Printf("Matched service %s for path %s\n", best.Name, url.Path)
+
 	return best, nil
 
 }
@@ -56,9 +59,10 @@ func makeNewRequest(service *Service, request *http.Request, bodyBytes []byte) (
 	/*Load balancin*/
 	instance := service.pickAlgorithm()
 	if instance == nil {
+		fmt.Printf("No healthy instance available for service %s\n", service.Name)
 		return nil, errors.New("An error occured while creating new request")
 	}
-	fmt.Printf("Pronadjen %s: %s\n", service.Name, instance.Url)
+	fmt.Printf("Service %s: selected instance %s\n", service.Name, instance.Url)
 
 	temp, err := url.Parse(instance.Url) //skidanje http:// tako da se dobije samo localhost i port:
 	if temp == nil || err != nil {
@@ -129,11 +133,11 @@ func (g Gateway) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 			savedError = err
 			if errors.Is(err, context.DeadlineExceeded) { //ako je deadline (5s) prosao, onda 504, u suprotnom 502
 				lastStatus = http.StatusGatewayTimeout
-				fmt.Printf("Timeout %s -> %s\n", service.Name, newRequest.URL.Host)
+				fmt.Printf("Service %s: timeout connecting to %s\n", service.Name, newRequest.URL.Host)
 				continue
 			}
 			lastStatus = http.StatusBadGateway
-			fmt.Printf("Neuspesna konekcija sa  %s -> %s\n", service.Name, newRequest.URL.Host)
+			fmt.Printf("Service %s: connection failed to %s\n", service.Name, newRequest.URL.Host)
 
 			continue
 		}
@@ -144,7 +148,7 @@ func (g Gateway) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		io.Copy(writer, response.Body)
 		response.Body.Close() //nakon citanja http bodya da ne bi konekcija ostala otvorena moramo je zatvoriti
 		cancel()              //zaustavlja timer i memoriju vezanu za njega
-		fmt.Printf("Povezan %s -> %s\n", service.Name, newRequest.URL.Host)
+		fmt.Printf("Service %s: successfully connected to %s\n", service.Name, newRequest.URL.Host)
 
 		return
 	}
