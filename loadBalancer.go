@@ -36,11 +36,29 @@ func (rr *RoundRobin) PickNext(service *Service) *Instance {
 
 	return nil
 
-} //cela ova funkcija, kao i svaki drugi picker zavisi od inicijalizacije Stateova pri pokretanju proxya. u suprotnom su nil.
+}
+
+// cela ova funkcija, kao i svaki drugi picker zavisi od inicijalizacije Stateova pri pokretanju proxya. u suprotnom su nil.
+func cherryPickHealthyInstances(healthyInstances []*int, service *Service) int {
+	counter := 0
+	for i, _ := range service.Instances {
+		service.Instances[i].Mu.Lock()
+		if service.Instances[i].Healthy == true {
+			p := new(int) //heap alokacija
+			*p = i
+			healthyInstances[counter] = p
+			counter++
+		}
+		service.Instances[i].Mu.Unlock()
+	}
+	return counter
+}
 func (r *Random) PickNext(service *Service) *Instance {
+	healthyInstances := make([]*int, len(service.Instances))
+	count := cherryPickHealthyInstances(healthyInstances, service)
 	for i := 0; i < 10; i++ {
-		number := rand.IntN(len(service.Instances))
-		chosenInstance := &service.Instances[number]
+		number := rand.IntN(count)
+		chosenInstance := &service.Instances[*healthyInstances[number]]
 		chosenInstance.Mu.Lock()
 		if chosenInstance.Healthy == true {
 			chosenInstance.Mu.Unlock()
@@ -75,6 +93,8 @@ func (swrr *SmoothWeightedRoundRobin) PickNext(service *Service) *Instance {
 		if instanca.Healthy == true {
 			swrr.currentWeight[instanca.Url] += instanca.Weight
 			dynamicTotalWeight += instanca.Weight
+		} else {
+			swrr.currentWeight[instanca.Url] = 0
 		}
 		instanca.Mu.Unlock()
 	}

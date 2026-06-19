@@ -78,6 +78,7 @@ func makeNewRequest(service *Service, request *http.Request, bodyBytes []byte) (
 			return io.NopCloser(bytes.NewReader(bodyBytes)), nil
 		}
 	}
+	newRequest.TransferEncoding = nil
 
 	return newRequest, nil
 }

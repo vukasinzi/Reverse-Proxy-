@@ -54,7 +54,7 @@ func checkInstance(url string) bool {
 	client := http.Client{
 		Timeout: time.Second * 1,
 	}
-	healthURL := strings.TrimRight(url, "/") + "/health"
+	healthURL := strings.TrimSuffix(url, "/") + "/health"
 
 	resp, err := client.Get(healthURL)
 	if err != nil {
