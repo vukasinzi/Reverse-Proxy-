@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -39,7 +40,7 @@ func (g Gateway) findService(url *url.URL) (*Service, error) {
 	return best, nil
 
 }
-func makeNewRequest(service *Service, request *http.Request) (*http.Request, error) {
+func makeNewRequest(service *Service, request *http.Request, bodyBytes []byte) (*http.Request, error) {
 	newRequest := request.Clone(request.Context()) //Kloniranje postojeceg httpa, radi lakse izmene i preusmerenja na backend
 	if newRequest == nil {
 		return nil, errors.New("An error occured while creating new request")
@@ -67,6 +68,17 @@ func makeNewRequest(service *Service, request *http.Request) (*http.Request, err
 	newRequest.URL.Host = temp.Host
 	newRequest.Host = temp.Host
 	newRequest.RequestURI = ""
+
+	//Ovde kopiramo body ako postoji, jer clone prakticno samo pomera pokazivac na telo. kad se jednom procita ono se "gubi".
+	//Dakle ako bi backend pao prvi put pomocu makerequesta, nas body bi se izgubio. Ovako osiguravam da ce ostati kopiran
+	if bodyBytes != nil {
+		newRequest.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+		newRequest.ContentLength = int64(len(bodyBytes))
+		newRequest.GetBody = func() (io.ReadCloser, error) {
+			return io.NopCloser(bytes.NewReader(bodyBytes)), nil
+		}
+	}
+
 	return newRequest, nil
 }
 func (g Gateway) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
@@ -81,11 +93,22 @@ func (g Gateway) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 		http.NotFound(writer, request)
 		return
 	}
+	/*problem jer kad se klonira telo ono se praktično istroši, treba da ga sačuvamo !*/
+	var bodyBytes []byte
+	if request.Body != nil {
+		bodyBytes, err = io.ReadAll(request.Body)
+		request.Body.Close()
+		if err != nil {
+			http.Error(writer, "failed to read body", http.StatusBadRequest)
+			return
+		}
+	}
+
 	var savedError error
 	var lastStatus int
 	for i := 0; i < maxAttempts; i++ {
 
-		newRequest, err := makeNewRequest(service, request)
+		newRequest, err := makeNewRequest(service, request, bodyBytes)
 		if err != nil {
 			//http.Error(writer, err.Error(), http.StatusBadGateway)
 			savedError = err
