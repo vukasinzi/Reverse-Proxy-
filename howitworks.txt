@@ -15,5 +15,10 @@ Dakle, svako ko je nasledi može da redefiniše ponašanje za svoj slučaj. Roun
 ugnježdi direktno na njemu. Ovim pravimo neki vid nasleđivanja pa ispada kao da je State nadklasa tj interfejs koji nasleđuju ostali algoritmi
 Još jedan razlog za postojanje Statea je mutex koji treba da osigura da se nikad ne desi race condition pri odabiru sledećeg servisa.
 
+Pri dodatku health checkova nastao je problem pri pokretanju healtcheckova za svaku instancu simultano. To je ispravljeno tako što se za svaki poziv 
+funkcije pravi gorutina koja proverava i vraća odgovor. Pošto je ovo race condition, jer loadbalancer može pristupati instanci dok healtcheck obavlja markiranje
+zdravih/nezdravih instanci koristi se mutex koji sprečava da se ta instanca menja. 
+
+Logovi funkcionišu po principu običnog printfa svaki put kad se desi neka greška ili uspeh
 Najzad, ovo jedino može da radi ako sve ove stejtove na početku inicijalizujemo. To radimo u config pri učitavanju gde odabir algoritma
 uzimamo direktno iz fajla 'config.json'
